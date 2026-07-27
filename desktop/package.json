@@ -1,0 +1,16 @@
+{
+  "name": "@ajiunotes/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "productName": "AI可视化编导台",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "package:mac": "node package-mac.mjs"
+  },
+  "devDependencies": {
+    "@electron/asar": "^4.2.1",
+    "electron": "38.4.0"
+  }
+}
