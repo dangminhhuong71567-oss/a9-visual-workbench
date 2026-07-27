@@ -7,6 +7,7 @@ import type {Asset, Clip, MotionPreset, ProjectDocument, Track} from "@ajiunotes
 import {clampCanvasPosition, clearCaptionClips, clearMotionClips, fitClipToAssetAspect, fitProjectDurationToContent, isClipWithinSafeArea, moveClip, replaceClip, resizeClipFromHandle, rippleTrimProject, trimClipEnd, trimClipStart, updateClipTransform, type CanvasResizeHandle} from "@ajiunotes/editor-core";
 import {EditorComposition, resolveCompositionMetadata, type EditorInputProps} from "@ajiunotes/video-engine";
 import {api, type Health, type ProjectBundle, type ProjectSummary} from "./api";
+import {createCommunityMotionPresets} from "./community-motion-presets";
 import {AlertIcon, ArrowLeftIcon, CheckIcon, EyeIcon, FilmIcon, FolderIcon, GridIcon, LayersIcon, LockIcon, SearchIcon, SparkIcon, UploadIcon} from "./icons";
 import {useProjectEditor} from "./useProjectEditor";
 import {ContentPanel, MotionDesignerPanel, MotionLibraryPanel, RecordingPanel, ShotNodes, type MotionDesignDraft, type MotionDesignSeed, type RecordingInsert} from "./workbench-panels";
@@ -726,7 +727,18 @@ const Workbench = ({bundle, onBack, onReload}: {bundle: ProjectBundle; onBack: (
     const presetId = event.dataTransfer.getData("application/x-ajiunotes-motion-preset");
     if (!presetId) return;
     event.preventDefault();
-    const preset = (await api.motionPresets()).find((item) => item.id === presetId);
+    const serializedPreset = event.dataTransfer.getData("application/x-ajiunotes-motion-preset-json");
+    let draggedPreset: MotionPreset | undefined;
+    if (serializedPreset) {
+      try {
+        const parsed = JSON.parse(serializedPreset) as MotionPreset;
+        if (parsed.id === presetId) draggedPreset = parsed;
+      } catch {
+        // Continue with the shared built-in/server catalog below.
+      }
+    }
+    const builtInPreset = createCommunityMotionPresets(editor.project).find((item) => item.id === presetId);
+    const preset = draggedPreset ?? builtInPreset ?? (await api.motionPresets()).find((item) => item.id === presetId);
     if (!preset) {window.alert("动效预设不存在，请刷新动效库后重试"); return;}
     const draft = motionDraftFromPreset(preset);
     if (!draft) {window.alert("动效模板缺失，暂时不能加入画面"); return;}

@@ -63,5 +63,18 @@ test("公开动效列表只合并备用动效和社区文字动效", async () =>
   const source = await readFile(new URL("../app/src/workbench-panels.tsx", import.meta.url), "utf8");
   assert.match(source, /preset\.name\.startsWith\("备用｜"\)/);
   assert.match(source, /createCommunityMotionPresets/);
+  assert.match(source, /application\/x-ajiunotes-motion-preset-json/);
   assert.doesNotMatch(source, /Motion2LibraryPanel/);
+});
+
+test("拖拽动效优先携带完整预设并回退到同一内置目录", async () => {
+  const source = await readFile(new URL("../app/src/App.tsx", import.meta.url), "utf8");
+  assert.match(source, /application\/x-ajiunotes-motion-preset-json/);
+  assert.match(source, /createCommunityMotionPresets\(editor\.project\)/);
+});
+
+test("公开版恰好提供八个社区动效", async () => {
+  const source = await readFile(new URL("../app/src/community-motion-presets.ts", import.meta.url), "utf8");
+  const presetIds = [...source.matchAll(/id: "builtin-typography-[^"]+"/g)];
+  assert.equal(presetIds.length, 8);
 });
