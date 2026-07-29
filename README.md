@@ -1,5 +1,7 @@
 # AI 可视化编导台
 
+<img width="3020" height="1538" alt="e44059cd7c80c421cf44d6631713fd4f" src="https://github.com/user-attachments/assets/d56f49de-9d07-4d56-abe7-1141f430997c" />
+
 一个基于 Remotion 的本地多轨口播视频编导台。它既可以直接导入视频手动剪辑，也可以让 Codex 先分析录制素材、给出带时间戳的初剪方案，在你确认后创建可继续编辑的项目。
 
 项目文件、素材和导出视频都保存在本机，不需要购买服务器。预览和正式渲染使用同一份 `ProjectDocument`、同一套 Remotion Composition 和同一组动效组件。
