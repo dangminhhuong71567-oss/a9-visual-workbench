@@ -7,6 +7,7 @@ import type {Asset, Clip, MotionPreset, ProjectDocument, Track} from "@ajiunotes
 import {clampCanvasPosition, clearCaptionClips, clearMotionClips, fitClipToAssetAspect, fitProjectDurationToContent, isClipWithinSafeArea, moveClip, replaceClip, resizeClipFromHandle, rippleTrimProject, trimClipEnd, trimClipStart, updateClipTransform, type CanvasResizeHandle} from "@ajiunotes/editor-core";
 import {EditorComposition, resolveCompositionMetadata, type EditorInputProps} from "@ajiunotes/video-engine";
 import {api, type Health, type ProjectBundle, type ProjectSummary} from "./api";
+import {HyperFramesPanel} from "./HyperFramesPanel";
 import {createCommunityMotionPresets} from "./community-motion-presets";
 import {AlertIcon, ArrowLeftIcon, CheckIcon, EyeIcon, FilmIcon, FolderIcon, GridIcon, LayersIcon, LockIcon, SearchIcon, SparkIcon, UploadIcon} from "./icons";
 import {useProjectEditor} from "./useProjectEditor";
@@ -462,7 +463,7 @@ const Workbench = ({bundle, onBack, onReload}: {bundle: ProjectBundle; onBack: (
   const playerRef = useRef<PlayerRef>(null);
   const [frame, setFrame] = useState(0);
   const [selectedId, setSelectedId] = useState<string | undefined>(() => bundle.project.clips.find((clip) => clip.type === "template")?.id ?? bundle.project.clips[0]?.id);
-  const [tab, setTab] = useState<"assets" | "motion">("assets");
+  const [tab, setTab] = useState<"assets" | "motion" | "hyperframes">("assets");
   const [sidePanel, setSidePanel] = useState<"content" | "motion" | "recording">("content");
   const [uploading, setUploading] = useState<string>();
   const assetImportRef = useRef<HTMLInputElement>(null);
@@ -788,6 +789,12 @@ const Workbench = ({bundle, onBack, onReload}: {bundle: ProjectBundle; onBack: (
     } catch (cause) {window.alert(cause instanceof Error ? cause.message : "素材导入失败");}
     finally {setUploading(undefined);}
   };
+  const acceptHyperFramesAsset = (asset: Asset) => {
+    const project = currentProjectRef.current;
+    if (project.assets.some((item) => item.id === asset.id)) { setTab("assets"); return; }
+    editor.commit({...project, assets: [...project.assets, asset]}, "导入 HyperFrames 渲染素材");
+    setTab("assets");
+  };
   const importCaseAsset = async (clipId: string, caseIndex: number, file: File) => {
     setUploading(caseIndex < 0 ? "动效素材" : `案例 ${caseIndex + 1} 素材`);
     try {
@@ -856,8 +863,8 @@ const Workbench = ({bundle, onBack, onReload}: {bundle: ProjectBundle; onBack: (
         <div className="header-actions"><button data-testid="undo" disabled={!editor.canUndo} onClick={editor.undo}>撤销</button><button data-testid="redo" disabled={!editor.canRedo} onClick={editor.redo}>重做</button><button data-testid="recovery" onClick={() => {void openRecovery();}}>恢复点</button><button data-testid="save" className="check-button" onClick={() => {void editor.saveNow();}}><CheckIcon/>保存</button></div>
       </header>
       <div className="workbench-main">
-        <aside className="library-panel"><div className="library-tabs"><button className={tab === "assets" ? "active" : ""} onClick={() => setTab("assets")}><FolderIcon/>素材</button><button className={tab === "motion" ? "active" : ""} onClick={() => setTab("motion")}><GridIcon/>动效</button></div><div className="search-box"><SearchIcon/><span>{tab === "assets" ? "拍摄、案例与证明素材" : "动效库与剪辑经验"}</span></div>
-          {tab === "assets" ? <><div className="asset-import-head"><div><strong>本片素材</strong><span>可多选导入，再拖到画布或时间线</span></div><button onClick={() => assetImportRef.current?.click()}>导入</button><input ref={assetImportRef} hidden multiple type="file" accept="video/*,image/*,audio/*,.srt,.vtt,.ass" onChange={(event) => {void importAssets(Array.from(event.currentTarget.files ?? [])); event.currentTarget.value = "";}}/></div><div className="asset-list"><AssetGroup highlighted title="动画、案例与证明素材" note="高光标注；后续为本条视频制作的动态素材统一放这里" assets={supportAssets} statusFor={assetStatus} onUpload={(asset, file) => attach(asset.id, file)} onInsert={insertAsset}/><AssetGroup title="口播原片" note="全部独立保留，可逐段裁切气口" assets={originalAssets} statusFor={assetStatus} onUpload={(asset, file) => attach(asset.id, file)} onInsert={insertAsset}/><AssetGroup title="项目辅助文件" note="合并备份与字幕文件，不替代口播原片" assets={projectAssets} statusFor={assetStatus} onUpload={(asset, file) => attach(asset.id, file)} onInsert={insertAsset}/>{uploading ? <div className="uploading">正在导入 {uploading}…</div> : null}</div></> : <MotionLibraryPanel project={editor.project} templates={templateRegistry} refreshKey={motionLibraryRevision} onDesign={(seed) => {setMotionSeed(seed); setMotionCandidate(undefined); setSidePanel("motion");}}/>} 
+        <aside className="library-panel"><div className="library-tabs three-tabs"><button className={tab === "assets" ? "active" : ""} onClick={() => setTab("assets")}><FolderIcon/>素材</button><button className={tab === "motion" ? "active" : ""} onClick={() => setTab("motion")}><GridIcon/>动效</button><button data-testid="hyperframes-tab" className={tab === "hyperframes" ? "active" : ""} onClick={() => setTab("hyperframes")}><FilmIcon/>HF</button></div><div className="search-box"><SearchIcon/><span>{tab === "assets" ? "拍摄、案例与证明素材" : tab === "motion" ? "动效库与剪辑经验" : "HyperFrames 检查与渲染导入"}</span></div>
+          {tab === "assets" ? <><div className="asset-import-head"><div><strong>本片素材</strong><span>可多选导入，再拖到画布或时间线</span></div><button onClick={() => assetImportRef.current?.click()}>导入</button><input ref={assetImportRef} hidden multiple type="file" accept="video/*,image/*,audio/*,.srt,.vtt,.ass" onChange={(event) => {void importAssets(Array.from(event.currentTarget.files ?? [])); event.currentTarget.value = "";}}/></div><div className="asset-list"><AssetGroup highlighted title="动画、案例与证明素材" note="高光标注；后续为本条视频制作的动态素材统一放这里" assets={supportAssets} statusFor={assetStatus} onUpload={(asset, file) => attach(asset.id, file)} onInsert={insertAsset}/><AssetGroup title="口播原片" note="全部独立保留，可逐段裁切气口" assets={originalAssets} statusFor={assetStatus} onUpload={(asset, file) => attach(asset.id, file)} onInsert={insertAsset}/><AssetGroup title="项目辅助文件" note="合并备份与字幕文件，不替代口播原片" assets={projectAssets} statusFor={assetStatus} onUpload={(asset, file) => attach(asset.id, file)} onInsert={insertAsset}/>{uploading ? <div className="uploading">正在导入 {uploading}…</div> : null}</div></> : tab === "motion" ? <MotionLibraryPanel project={editor.project} templates={templateRegistry} refreshKey={motionLibraryRevision} onDesign={(seed) => {setMotionSeed(seed); setMotionCandidate(undefined); setSidePanel("motion");}}/> : <HyperFramesPanel projectId={editor.project.projectId} fps={editor.project.settings.fps} onAssetImported={acceptHyperFramesAsset}/>}
         </aside>
         <section className="editor-stage" onDragOver={(event: ReactDragEvent<HTMLElement>) => {if (event.dataTransfer.types.includes("application/x-ajiunotes-asset") || event.dataTransfer.types.includes("application/x-ajiunotes-motion-preset")) {event.preventDefault(); event.dataTransfer.dropEffect = "copy";}}} onDrop={(event: ReactDragEvent<HTMLElement>) => {void dropOnStage(event);}}><div className="stage-toolbar"><div><span className="live-dot"/>同源 Remotion Player</div><div>当前帧 <strong>{frame}</strong> / {metadata.durationInFrames - 1}</div></div><div className="canvas-area"><div className="canvas-wrap" style={{aspectRatio: `${metadata.width}/${metadata.height}`, width: `min(82cqw, 960px, calc(100cqh * ${metadata.width / metadata.height}))`}}>
           <Player ref={playerRef} component={EditorComposition} inputProps={inputProps} durationInFrames={metadata.durationInFrames} compositionWidth={metadata.width} compositionHeight={metadata.height} fps={metadata.fps} controls initiallyShowControls style={{width: "100%", height: "100%"}} acknowledgeRemotionLicense/>

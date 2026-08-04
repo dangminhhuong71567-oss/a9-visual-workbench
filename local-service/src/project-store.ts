@@ -504,6 +504,29 @@ export const importOwnedAsset = async (projectId: string, file: Express.Multer.F
   return asset;
 };
 
+/** Imports a workbench-generated file through the normal asset validation path. */
+export const importOwnedGeneratedFile = async (
+  projectId: string,
+  source: string,
+  originalName: string,
+  mimetype = "video/mp4",
+): Promise<Asset> => {
+  const buffer = await readFile(source);
+  const file = {
+    fieldname: "file",
+    originalname: originalName,
+    encoding: "7bit",
+    mimetype,
+    size: buffer.byteLength,
+    destination: "",
+    filename: originalName,
+    path: source,
+    buffer,
+  } as Express.Multer.File;
+  const asset = await importOwnedAsset(projectId, file);
+  return {...asset, sourceKind: "owned"};
+};
+
 const parseFrameRate = (value: string | undefined): number => {
   const [rawNumerator, rawDenominator] = String(value ?? "30/1").split("/");
   const numerator = Number(rawNumerator ?? 30);
