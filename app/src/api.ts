@@ -29,6 +29,22 @@ export type Health = {
   ffmpeg: boolean;
   ffprobe: boolean;
   storageRoot: string;
+  hyperframes?: {version: string; npxCandidates: string[]};
+};
+
+export type HyperFramesSource = {
+  id: string;
+  projectId: string;
+  name: string;
+  sourceDirectory: string;
+  entryDirectory: string;
+  fileCount: number;
+  status: "uploaded" | "checking" | "checked" | "failed" | "rendered";
+  warnings: string[];
+  createdAt: string;
+  updatedAt: string;
+  check?: {passed: boolean; checkedAt: string; summary: string; output: string};
+  render?: {renderedAt: string; assetId: string; outputName: string};
 };
 
 export type RecordingSummary = {
@@ -98,6 +114,26 @@ export const api = {
     files.forEach((file) => data.append("files", file));
     return request<import("@ajiunotes/contracts").Asset[]>(`/api/projects/${encodeURIComponent(projectId)}/assets-import`, {method: "POST", body: data}, 120_000);
   },
+  hyperFramesSources: (projectId: string) => request<HyperFramesSource[]>(`/api/projects/${encodeURIComponent(projectId)}/hyperframes/sources`),
+  importHyperFramesSource: (projectId: string, files: File[], name?: string) => {
+    const data = new FormData();
+    const paths = files.map((file) => file.webkitRelativePath || file.name);
+    files.forEach((file) => data.append("files", file));
+    data.set("paths", JSON.stringify(paths));
+    if (name?.trim()) data.set("name", name.trim());
+    return request<HyperFramesSource>(`/api/projects/${encodeURIComponent(projectId)}/hyperframes/sources`, {method: "POST", body: data}, 180_000);
+  },
+  checkHyperFramesSource: (projectId: string, sourceId: string) => request<HyperFramesSource>(`/api/projects/${encodeURIComponent(projectId)}/hyperframes/sources/${encodeURIComponent(sourceId)}/check`, {
+    method: "POST",
+    headers: {"content-type": "application/json"},
+    body: JSON.stringify({confirmation: "我确认来源可信"}),
+  }, 360_000),
+  renderHyperFramesSource: (projectId: string, sourceId: string, quality: "draft" | "standard" | "high") => request<{source: HyperFramesSource; asset: import("@ajiunotes/contracts").Asset}>(`/api/projects/${encodeURIComponent(projectId)}/hyperframes/sources/${encodeURIComponent(sourceId)}/render`, {
+    method: "POST",
+    headers: {"content-type": "application/json"},
+    body: JSON.stringify({confirmation: "我确认来源可信", quality}),
+  }, 1_500_000),
+  deleteHyperFramesSource: (projectId: string, sourceId: string) => request<{sourceId: string; deleted: boolean}>(`/api/projects/${encodeURIComponent(projectId)}/hyperframes/sources/${encodeURIComponent(sourceId)}`, {method: "DELETE"}),
   motionPresets: () => request<MotionPreset[]>("/api/motion-presets"),
   saveMotionPreset: (projectId: string, preset: Pick<MotionPreset, "name" | "componentId" | "templateVersion" | "props" | "defaultTransform">) => request<MotionPreset>(`/api/projects/${encodeURIComponent(projectId)}/motion-presets`, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify(preset)}),
 };

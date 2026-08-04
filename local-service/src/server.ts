@@ -4,6 +4,7 @@ import express from "express";
 import multer from "multer";
 import {attachAsset, createProjectFromMedia, deleteProject, importOwnedAsset, listAutosaves, listMotionPresets, listProjects, listRecordings, openSystemRecording, projectBundle, publicRoot, renameProject, restoreAutosave, saveCandidateProject, saveMotionPreset} from "./project-store.js";
 import {findMediaTool} from "./media-tools.js";
+import {checkHyperFramesSource, deleteHyperFramesSource, hyperFramesRuntime, importHyperFramesSource, listHyperFramesSources, renderHyperFramesSource} from "./hyperframes-bridge.js";
 
 const app = express();
 const upload = multer({storage: multer.memoryStorage(), limits: {fileSize: 1024 * 1024 * 1024}});
@@ -28,6 +29,7 @@ app.get("/api/health", (_request, response) => {
     ffmpeg: Boolean(findMediaTool("ffmpeg")),
     ffprobe: Boolean(findMediaTool("ffprobe")),
     storageRoot: publicRoot,
+    hyperframes: hyperFramesRuntime,
   });
 });
 
@@ -97,6 +99,54 @@ app.post("/api/projects/:projectId/assets-import", upload.array("files", 100), a
     const files = Array.isArray(request.files) ? request.files : [];
     if (!files.length) throw new Error("没有收到素材文件");
     response.status(201).json(await Promise.all(files.map((file) => importOwnedAsset(param(request.params.projectId, "projectId"), file))));
+  } catch (error) { next(error); }
+});
+
+app.get("/api/projects/:projectId/hyperframes/sources", async (request, response, next) => {
+  try { response.json(await listHyperFramesSources(param(request.params.projectId, "projectId"))); } catch (error) { next(error); }
+});
+
+app.post("/api/projects/:projectId/hyperframes/sources", upload.array("files", 3000), async (request, response, next) => {
+  try {
+    const files = Array.isArray(request.files) ? request.files : [];
+    const paths = JSON.parse(String(request.body?.paths ?? "[]")) as unknown;
+    if (!Array.isArray(paths) || !paths.every((path) => typeof path === "string")) throw new Error("HyperFrames 文件路径清单无效");
+    response.status(201).json(await importHyperFramesSource(
+      param(request.params.projectId, "projectId"),
+      files,
+      paths,
+      typeof request.body?.name === "string" ? request.body.name : undefined,
+    ));
+  } catch (error) { next(error); }
+});
+
+app.post("/api/projects/:projectId/hyperframes/sources/:sourceId/check", async (request, response, next) => {
+  try {
+    response.json(await checkHyperFramesSource(
+      param(request.params.projectId, "projectId"),
+      param(request.params.sourceId, "sourceId"),
+      request.body?.confirmation,
+    ));
+  } catch (error) { next(error); }
+});
+
+app.post("/api/projects/:projectId/hyperframes/sources/:sourceId/render", async (request, response, next) => {
+  try {
+    response.status(201).json(await renderHyperFramesSource(
+      param(request.params.projectId, "projectId"),
+      param(request.params.sourceId, "sourceId"),
+      request.body?.confirmation,
+      request.body?.quality,
+    ));
+  } catch (error) { next(error); }
+});
+
+app.delete("/api/projects/:projectId/hyperframes/sources/:sourceId", async (request, response, next) => {
+  try {
+    response.json(await deleteHyperFramesSource(
+      param(request.params.projectId, "projectId"),
+      param(request.params.sourceId, "sourceId"),
+    ));
   } catch (error) { next(error); }
 });
 
